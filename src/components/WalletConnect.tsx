@@ -1,84 +1,102 @@
-import { showConnect } from '@stacks/connect';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import styled from 'styled-components';
+
+interface Address {
+  symbol: string;
+  address: string;
+  type?: string;
+  publicKey?: string;
+  derivationPath?: string;
+}
 
 interface WalletConnectProps {
   onConnect: () => void;
   showClaim: boolean;
 }
 
-const Button = styled.button`
-  background: #8b4513;
-  border: 4px solid #654321;
+const ConnectButton = styled.button`
+  background: #5865F2;
   color: white;
+  border: none;
+  border-radius: 8px;
   padding: 12px 24px;
-  font-family: 'Press Start 2P', cursive;
   font-size: 16px;
+  font-weight: 600;
   cursor: pointer;
-  margin-top: 20px;
-  image-rendering: pixelated;
-  transition: all 0.3s ease;
-  
+  transition: all 0.2s;
+  z-index: 10;
+  position: relative;
+
   &:hover {
-    background: #654321;
-    transform: scale(1.05);
+    background: #4752C4;
   }
 `;
 
-const ClaimButton = styled(Button)`
-  background: #4CAF50;
-  border-color: #45a049;
+const ClaimButton = styled(ConnectButton)`
   opacity: 0;
-  transform: scale(0);
+  transform: translateY(20px);
+  transition: all 0.3s;
   
   &.show {
     opacity: 1;
-    transform: scale(1);
+    transform: translateY(0);
   }
-  
-  &:hover {
-    background: #45a049;
-  }
-`;
-
-const ClickText = styled.div`
-  font-family: 'Press Start 2P', cursive;
-  font-size: 14px;
-  color: #fff;
-  margin-top: 20px;
-  opacity: 0.8;
-  text-shadow: 2px 2px 0 rgba(0,0,0,0.2);
 `;
 
 export default function WalletConnect({ onConnect, showClaim }: WalletConnectProps) {
   const [isConnected, setIsConnected] = useState(false);
 
-  const connectWallet = () => {
-    showConnect({
-      appDetails: {
-        name: 'KRXL NFT',
-        icon: '/images/logo.png',
-      },
-      onFinish: () => {
-        setIsConnected(true);
-        onConnect();
-      },
-      onCancel: () => {
-        console.log('Wallet connection cancelled');
-      },
-    });
+  const checkWalletConnection = async () => {
+    try {
+      // @ts-ignore
+      const provider = window?.LeatherProvider;
+      if (provider) {
+        const response = await provider.request("getAddresses");
+        if (response?.result?.addresses?.length > 0) {
+          const stxAddress = response.result.addresses.find((addr: Address) => addr.symbol === 'STX');
+          if (stxAddress) {
+            setIsConnected(true);
+            onConnect();
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Wallet check failed:', error);
+    }
+  };
+
+  useEffect(() => {
+    checkWalletConnection();
+  }, []);
+
+  const connectWallet = async () => {
+    try {
+      // @ts-ignore
+      const provider = window?.LeatherProvider;
+      if (!provider) {
+        window.open('https://leather.io/install-extension', '_blank');
+        return;
+      }
+
+      const response = await provider.request("getAddresses");
+      if (response?.result?.addresses?.length > 0) {
+        const stxAddress = response.result.addresses.find((addr: Address) => addr.symbol === 'STX');
+        if (stxAddress) {
+          setIsConnected(true);
+          onConnect();
+        }
+      }
+    } catch (error) {
+      console.error('Wallet connection failed:', error);
+    }
   };
 
   return (
     <>
-      {!isConnected && (
-        <Button onClick={connectWallet}>
-          Connect Wallet
-        </Button>
-      )}
-      {isConnected && !showClaim && (
-        <ClickText>CLICK x3</ClickText>
-      )}
+      <ConnectButton onClick={connectWallet}>
+        {isConnected ? 'Wallet Connected' : 'Connect Wallet'}
+      </ConnectButton>
+
       {isConnected && showClaim && (
         <ClaimButton className="show">
           Claim NFT
